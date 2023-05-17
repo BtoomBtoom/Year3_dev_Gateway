@@ -1,0 +1,40 @@
+version: '3'
+networks:
+  my_network:
+    driver: bridge
+
+services:
+  # EMQX broker
+  broker:
+    image: emqx/emqx:5.0.8 
+    ports:
+      - 1883:1883 
+      - 8083:8083 
+      - 8084:8084 
+      - 8883:8883 
+      - 18083:18083
+    container_name: broker
+    networks:
+      - my_network
+  
+  # Gateway
+  gateway:
+    build: ./gateway/
+    environment:
+      - DB_NAME=data.db
+      - TABLE_NAME=building
+      - MQTT_BROKER=broker
+      - MQTT_TOPIC=mqtt/ipac/gateway/1
+      - MQTT_PORT=1883
+      - TZ=Asia/Saigon
+    volumes:
+      - ./data/environment.db:/gateway/data.db
+      - ./data/gateway.log:/gateway/gateway.log
+    depends_on:
+      - broker
+    container_name: gateway
+    networks:
+      - my_network   
+    links:
+      - broker
+

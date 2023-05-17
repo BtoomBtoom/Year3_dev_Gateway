@@ -1,0 +1,10 @@
+*.venv
+gateway/__pycache__/
+codeV1/
+todo.md
+environment_2022_8.db
+generator_data_2022_1.db
+data/
+gateway/data.db
+gateway/gateway.log
+
