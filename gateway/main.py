@@ -150,9 +150,9 @@ def sendSensorToBackend(broker, topic1,topic2, port, dbName, sensorTableName, ac
                             } 
                         }
                     client.publish(topic1, json.dumps(new_sensor_data))
-                    print("successfully publish SENSORDATA to DJANGO " + str(new_sensor_data))
+                    print("successfully publish SENSORDATA to DJANGO ") #+ str(new_sensor_data))
                     client.publish(topic2, json.dumps(new_actuator_data))
-                    print("successfully publish ACTUATORDATA to DJANGO" + str(new_actuator_data))
+                    print("successfully publish ACTUATORDATA to DJANGO") #+ str(new_actuator_data))
                     clock.sleep(time_delay)            
                 else:
                     print("No data to publish to back-end")
@@ -189,11 +189,11 @@ def getAverageData(dbName, tableName, number_of_latest_data=10, datatype="sensor
         __cur.close()
         __conn.close()
         if len(res_list) != 0:
-            print("RES LIST ACTUATORRRRRRRRRRRRRRRRRRRRRRR")
-            print(res_list)
+            # print("RES LIST ACTUATORRRRRRRRRRRRRRRRRRRRRRR")
+            # print(res_list)
             res_data = {"speed": res_list[0][2], "state": res_list[0][3], "time": res_list[0][4]}
-            print("RES DATA ACTUATORRRRRRRRRRRRRRRRRRRRRRRRRRRR")
-            print(res_data)
+            # print("RES DATA ACTUATORRRRRRRRRRRRRRRRRRRRRRRRRRRR")
+            # print(res_data)
             return [res_data["speed"],res_data["state"], res_data["time"]]
         else:
             print("No data")
@@ -227,7 +227,7 @@ def main():
         #____________________________________________________________________
         configDatabase(dbName)
         #add some fake registered nodes into database
-        registerNode(dbName)
+        # registerNode(dbName)
         
         # broker = os.environ.get("MQTT_BROKER", "broker.mqttdashboard.com")
         broker = os.environ.get("MQTT_BROKER", "localhost") #desktop-rjl9d4n
@@ -246,7 +246,7 @@ def main():
                                                             topic_list["actuator_gateway_server"], 
                                                             port, dbName, "SensorMonitor", 
                                                             "ActuatorMonitor",
-                                                            10, 5, lock
+                                                            10, 8, lock
                                                         )))
         for i in process_list:
             i.start()   

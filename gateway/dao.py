@@ -114,7 +114,7 @@ class SqliteDAO:
             test_db.commit()
             test_db.cursor().close()
             test_db.close()
-            print("Successfully insert to database!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11111")
+            print(f"Successfully insert to TABLE {tableName}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             self.__logger.info("Inserted a record successfully")
         except sqlite3.Error as error:
             self.__logger.info("Insertted a record unsuccessfully")
