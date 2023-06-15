@@ -38,6 +38,7 @@ def configDatabase(dbName) -> None:
                                         FOREIGN KEY (node_id) REFERENCES Registration(node_id) ON DELETE CASCADE ON UPDATE CASCADE"""
     create_table_SetPointControl: str = """id INTEGER PRIMARY KEY AUTOINCREMENT,
                                         node_id INTEGER,
+                                        option TEXT(10),
                                         aim TEXT(10),
                                         value REAL,
                                         time INTEGER,
@@ -71,35 +72,75 @@ def configMQTT(broker, topic, port, dbName,lock):
                     msg = json.loads(temp)  #decode json-file to normal dictionary
                     print(f"receive message from broker {broker}: {msg}")
                     # huimidity: correct letter humidity
-                    with lock:
-                        db = SqliteDAO(dbName)
-                        logger = Log(__name__)
-                        print("START INSERTING DATA TO DATABASE")
-                        if topic == "farm/1/sensor/1":
-                            colValuesTuple = []
-                            colValuesTuple.append(1)
-                            for key in msg:
-                                if key == "info":
-                                    for info_key in msg[key]:
-                                        colValuesTuple.append(msg[key][info_key])
-                            colValuesTuple = tuple(colValuesTuple)
-                            print(colValuesTuple)
-                            db.insertOneRecord("SensorMonitor",
-                                               "node_id, co2, temp, hum, time",
-                                                "?, ?, ?, ?, ?", colValuesTuple)
-                        elif topic == "farm/1/actuator/1":
-                            colValuesTuple = []
-                            colValuesTuple.append(1)
-                            for key in msg:
-                                if key == "info":
-                                    for info_key in msg[key]:
-                                        colValuesTuple.append(msg[key][info_key])
-                            colValuesTuple = tuple(colValuesTuple)
-                            print(colValuesTuple)
-                            db.insertOneRecord("ActuatorMonitor",
-                                               "node_id, state, speed, time", 
-                                                "?, ?, ?, ?", colValuesTuple)
-                            #INSERT INTO ActuatorMonitor VALUES (1, 0, 63, 1684639109);
+                    # with lock:
+                    #_______________________________lock from this___________________________________________
+                    db = SqliteDAO(dbName)
+                    logger = Log(__name__)
+                    print("START INSERTING DATA TO DATABASE")
+                    if topic == "farm/1/sensor/1":
+                        colValuesTuple = []
+                        colValuesTuple.append(1)
+                        for key in msg:
+                            if key == "info":
+                                for info_key in msg[key]:
+                                    colValuesTuple.append(msg[key][info_key])
+                        colValuesTuple = tuple(colValuesTuple)
+                        print(colValuesTuple)
+                        db.insertOneRecord("SensorMonitor",
+                                            "node_id, co2, temp, hum, time",
+                                            "?, ?, ?, ?, ?", colValuesTuple)
+                    elif topic == "farm/1/actuator/1":
+                        colValuesTuple = []
+                        colValuesTuple.append(1)
+                        for key in msg:
+                            if key == "info":
+                                for info_key in msg[key]:
+                                    colValuesTuple.append(msg[key][info_key])
+                        colValuesTuple = tuple(colValuesTuple)
+                        print(colValuesTuple)
+                        db.insertOneRecord("ActuatorMonitor",
+                                            "node_id, state, speed, time", 
+                                            "?, ?, ?, ?", colValuesTuple)
+                        #INSERT INTO ActuatorMonitor VALUES (1, 0, 63, 1684639109);
+                    elif topic == "farm/1/control":
+                        """
+                        message structure example:
+                        {
+                            "operator": "sendSetPoint", 
+                            "option": "manual", 
+                            "info": {
+                                "speed": 123, 
+                                "time": 1686064826
+                                }
+                        }
+                        """
+                        colValuesTuple = []
+                        colValuesTuple.append(1)
+                        option = msg["option"]
+                        aim = None
+                        value = None
+                        time = None
+                        if option == "manual":
+                            aim = "speed"
+                        else:
+                            if "temp" in msg["info"]:
+                                aim = "temp"
+                            else:
+                                aim = "co2"
+                        value = msg["info"][aim]
+                        time = msg["info"]["time"]
+                        colValuesTuple.append(option)
+                        colValuesTuple.append(aim)
+                        colValuesTuple.append(value)
+                        colValuesTuple.append(time)
+                        colValuesTuple = tuple(colValuesTuple)
+                        print("Data of monitor tuple to insert to DATABASEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+                        print(colValuesTuple)
+                        db.insertOneRecord("SetPointControl",
+                                           "node_id, option, aim, value, time",
+                                           "?, ?, ?, ?, ?", colValuesTuple)
+
+                    #_______________________________lock end here___________________________________________
                 except json.JSONDecodeError as error:
                     
                     logger.exception(error)
@@ -122,41 +163,43 @@ def sendSensorToBackend(broker, topic1,topic2, port, dbName, sensorTableName, ac
         client.subscribe(topic1)
         client.subscribe(topic2)
         while(True):
-            with lock:
-                date = datetime.datetime.utcnow()
-                utc_time = calendar.timegm(date.utctimetuple())
-                [co2, temp, hum] = getAverageData(dbName, sensorTableName, number_of_latest_data, datatype="sensor")
-                [speed, state, time] = getAverageData(dbName, actuatorTableName, datatype="actuator")
-                if co2 != None and state != None:
-                    new_sensor_data = { 
-                                        "operator": "dataResponse", 
-                                        "status": 0, 
-                                        "info": { 
-                                            "co2": co2, 
-                                            "temp": temp, 
-                                            "hum": hum, 
-                                            "time": utc_time,
-                                        } 
+            # with lock:
+            #_________________________________________lock_start_______________________________________________
+            date = datetime.datetime.utcnow()
+            utc_time = calendar.timegm(date.utctimetuple())
+            [co2, temp, hum] = getAverageData(dbName, sensorTableName, number_of_latest_data, datatype="sensor")
+            [speed, state, time] = getAverageData(dbName, actuatorTableName, datatype="actuator")
+            if co2 != None and state != None:
+                new_sensor_data = { 
+                                    "operator": "dataResponse", 
+                                    "status": 0, 
+                                    "info": { 
+                                        "co2": co2, 
+                                        "temp": temp, 
+                                        "hum": hum, 
+                                        "time": utc_time,
                                     } 
+                                } 
 
-                    new_actuator_data = { 
-                            "operator": "actuatorData", 
-                            "status": 0, 
-                            "info": 
-                            { 
-                                "state": state, 
-                                "speed": speed, 
-                                "time": time,
-                            } 
-                        }
-                    client.publish(topic1, json.dumps(new_sensor_data))
-                    print("successfully publish SENSORDATA to DJANGO ") #+ str(new_sensor_data))
-                    client.publish(topic2, json.dumps(new_actuator_data))
-                    print("successfully publish ACTUATORDATA to DJANGO") #+ str(new_actuator_data))
-                    clock.sleep(time_delay)            
-                else:
-                    print("No data to publish to back-end")
-                    clock.sleep(time_delay)    
+                new_actuator_data = { 
+                        "operator": "actuatorData", 
+                        "status": 0, 
+                        "info": 
+                        { 
+                            "state": state, 
+                            "speed": speed, 
+                            "time": time,
+                        } 
+                    }
+                client.publish(topic1, json.dumps(new_sensor_data))
+                print("successfully publish SENSORDATA to DJANGO ") #+ str(new_sensor_data))
+                client.publish(topic2, json.dumps(new_actuator_data))
+                print("successfully publish ACTUATORDATA to DJANGO") #+ str(new_actuator_data))
+                clock.sleep(time_delay)            
+            else:
+                print("No data to publish to back-end")
+                clock.sleep(time_delay)   
+            #____________________________lock_end_here___________________________________________ 
     client.loopstop()
 
 
@@ -235,12 +278,14 @@ def main():
         topic_list = {"sensor_topic": "farm/1/sensor/1", 
                       "actuator_topic": "farm/1/actuator/1",
                       "sensor_gateway_server": "farm/1/monitor",
-                      "actuator_gateway_server": "farm/1/monitor/process",}
+                      "actuator_gateway_server": "farm/1/monitor/process",
+                      "setpoint_server_gateway": "farm/1/control",}
         port = os.environ.get("MQTT_PORT", 1883)
         lock = multiprocessing.Lock()
         process_list = []
         process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, topic_list["sensor_topic"], port, dbName, lock)))
         process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, topic_list["actuator_topic"], port, dbName, lock)))
+        process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, topic_list["setpoint_server_gateway"], port, dbName, lock)))
         process_list.append(multiprocessing.Process(target=sendSensorToBackend, args=(
                                                             broker, topic_list["sensor_gateway_server"], 
                                                             topic_list["actuator_gateway_server"], 
@@ -248,10 +293,33 @@ def main():
                                                             "ActuatorMonitor",
                                                             10, 8, lock
                                                         )))
+        thread_list = []
+        thread_list.append(threading.Thread(target=configMQTT, args=(broker, topic_list["sensor_topic"], port, dbName, lock)))
+        #this thread is for getting sensor data from things
+        thread_list.append(threading.Thread(target=configMQTT, args=(broker, topic_list["actuator_topic"], port, dbName, lock)))
+        #this thread is for getting actuator data from things
+        thread_list.append(threading.Thread(target=sendSensorToBackend, args=(
+                                                            broker, topic_list["sensor_gateway_server"], 
+                                                            topic_list["actuator_gateway_server"], 
+                                                            port, dbName, "SensorMonitor", 
+                                                            "ActuatorMonitor",
+                                                            10, 8, lock
+                                                        )))
+        #this thread is for sending sensor and actuator datas from gateway to backend
+        
+
         for i in process_list:
             i.start()   
         for i in process_list:
             i.join()
+        
+        # for i in thread_list:
+        #     i.start()   
+        # for i in thread_list:
+        #     i.join()
+        
+
+        
     except KeyboardInterrupt as error:
         logger.error("Interrupt from keyboard")
         print(str(error))
