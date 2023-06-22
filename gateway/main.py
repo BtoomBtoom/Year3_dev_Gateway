@@ -12,6 +12,15 @@ import calendar
 import datetime
 import subprocess
 
+
+topic_list = {"sensor_topic": "farm/1/sensor", 
+                      "actuator_topic": "farm/1/actuator",
+                      "sensor_gateway_server": "farm/1/monitor",
+                      "actuator_gateway_server": "farm/1/monitor/process",
+                      "setpoint_server_gateway": "farm/1/control",
+                      "setpoint_gateway_things": "farm/1/actuator",
+                      "things_register_gateway": "farm/1/register",}
+
 def configDatabase(dbName) -> None:
     """Create database"""
     # Enable foreign key constraints
@@ -77,32 +86,41 @@ def configMQTT(broker, topic, port, dbName,lock):
                     db = SqliteDAO(dbName)
                     logger = Log(__name__)
                     print("START INSERTING DATA TO DATABASE")
-                    if topic == "farm/1/sensor/1":
+                    if topic == topic_list["sensor_topic"]:
                         colValuesTuple = []
                         colValuesTuple.append(1)
                         for key in msg:
                             if key == "info":
-                                for info_key in msg[key]:
-                                    colValuesTuple.append(msg[key][info_key])
+                                # for info_key in msg[key]:
+                                #     colValuesTuple.append(msg[key][info_key])
+                                key_list = ["co2", "temp", "hum", "time"]
+                                for i in key_list:                               
+                                    colValuesTuple.append(msg[key][i])
                         colValuesTuple = tuple(colValuesTuple)
                         print(colValuesTuple)
                         db.insertOneRecord("SensorMonitor",
                                             "node_id, co2, temp, hum, time",
                                             "?, ?, ?, ?, ?", colValuesTuple)
-                    elif topic == "farm/1/actuator/1":
-                        colValuesTuple = []
-                        colValuesTuple.append(1)
-                        for key in msg:
-                            if key == "info":
-                                for info_key in msg[key]:
-                                    colValuesTuple.append(msg[key][info_key])
-                        colValuesTuple = tuple(colValuesTuple)
-                        print(colValuesTuple)
-                        db.insertOneRecord("ActuatorMonitor",
-                                            "node_id, state, speed, time", 
-                                            "?, ?, ?, ?", colValuesTuple)
-                        #INSERT INTO ActuatorMonitor VALUES (1, 0, 63, 1684639109);
-                    elif topic == "farm/1/control":
+                    elif topic == topic_list["actuator_topic"]:
+                        if msg["operator"] == "actuatorData":
+                            colValuesTuple = []
+                            colValuesTuple.append(1)
+                            for key in msg:
+                                if key == "info":
+                                    # for info_key in msg[key]:
+                                    #     colValuesTuple.append(msg[key][info_key])
+                                    key_list = ["state", "speed", "time"]
+                                    for i in key_list:                               
+                                        colValuesTuple.append(msg[key][i])
+                            colValuesTuple = tuple(colValuesTuple)
+                            print(colValuesTuple)
+                            db.insertOneRecord("ActuatorMonitor",
+                                                "node_id, state, speed, time", 
+                                                "?, ?, ?, ?", colValuesTuple)
+                            #INSERT INTO ActuatorMonitor VALUES (1, 0, 63, 1684639109);
+                        else:
+                            pass
+                    elif topic == topic_list["setpoint_server_gateway"]:
                         """
                         message structure example:
                         {
@@ -120,6 +138,7 @@ def configMQTT(broker, topic, port, dbName,lock):
                         aim = None
                         value = None
                         time = None
+                        setpoint_record_to_things = None
                         if option == "manual":
                             aim = "speed"
                         else:
@@ -129,6 +148,20 @@ def configMQTT(broker, topic, port, dbName,lock):
                                 aim = "co2"
                         value = msg["info"][aim]
                         time = msg["info"]["time"]
+                        setpoint_record_to_things = {
+                                    "operator": "setPoint",
+                                    "option": option,
+                                    "info": {
+                                        "speed": value,
+                                        "time": time,
+                                    },
+                                }
+                        #_________________publish setpioint record to things___________________________
+                        # client.subscribe("farm/1/1")
+                        client.publish(topic_list["setpoint_gateway_things"], json.dumps(setpoint_record_to_things))
+                        # client.unsubscribe("farm/1/1") #unsubscribe so that client will not also hearing topic "farm/1/1"
+                        #_________________________________________________________________________________
+                        print('Publishingggggggggggggggg..................')
                         colValuesTuple.append(option)
                         colValuesTuple.append(aim)
                         colValuesTuple.append(value)
@@ -168,8 +201,11 @@ def sendSensorToBackend(broker, topic1,topic2, port, dbName, sensorTableName, ac
             date = datetime.datetime.utcnow()
             utc_time = calendar.timegm(date.utctimetuple())
             [co2, temp, hum] = getAverageData(dbName, sensorTableName, number_of_latest_data, datatype="sensor")
+            print([co2, temp, hum])
+            print("___________________________________________________")
             [speed, state, time] = getAverageData(dbName, actuatorTableName, datatype="actuator")
-            if co2 != None and state != None:
+            # if co2 != None and state != None:
+            if True:
                 new_sensor_data = { 
                                     "operator": "dataResponse", 
                                     "status": 0, 
@@ -244,7 +280,7 @@ def getAverageData(dbName, tableName, number_of_latest_data=10, datatype="sensor
 
 def main():
     cmd_command: str = "emqx start"
-    subprocess.run(cmd_command, shell = True)
+    # subprocess.run(cmd_command, shell = True) #turn on emqx on local machine
     print("EMQX start")
     print("Gateway start")
     #add some fake nodes with their macaddress into table
@@ -273,13 +309,17 @@ def main():
         # registerNode(dbName)
         
         # broker = os.environ.get("MQTT_BROKER", "broker.mqttdashboard.com")
-        broker = os.environ.get("MQTT_BROKER", "localhost") #desktop-rjl9d4n
-        # topic = os.environ.get("MQTT_TOPIC", "Year3/Gateway")
-        topic_list = {"sensor_topic": "farm/1/sensor/1", 
-                      "actuator_topic": "farm/1/actuator/1",
-                      "sensor_gateway_server": "farm/1/monitor",
-                      "actuator_gateway_server": "farm/1/monitor/process",
-                      "setpoint_server_gateway": "farm/1/control",}
+        broker = os.environ.get("MQTT_BROKER", "27.71.227.1") #desktop-rjl9d4n
+        # broker = os.environ.get("MQTT_BROKER", "27.71.227.1") #desktop-rjl9d4n
+        topic = os.environ.get("MQTT_TOPIC", "Year3/Gateway")
+        # topic_list = {"sensor_topic": "farm/1/.", 
+        #               "actuator_topic": "farm/1/actuator/1",
+        #               "sensor_gateway_server": "farm/1/monitor",
+        #               "actuator_gateway_server": "farm/1/monitor/process",
+        #               "setpoint_server_gateway": "farm/1/control",
+        #               "setpoint_gateway_things": "farm/1/1",
+        #               "things_register_gateway": "farm/1/register",}
+
         port = os.environ.get("MQTT_PORT", 1883)
         lock = multiprocessing.Lock()
         process_list = []
@@ -287,9 +327,9 @@ def main():
         process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, topic_list["actuator_topic"], port, dbName, lock)))
         process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, topic_list["setpoint_server_gateway"], port, dbName, lock)))
         process_list.append(multiprocessing.Process(target=sendSensorToBackend, args=(
-                                                            broker, topic_list["sensor_gateway_server"], 
-                                                            topic_list["actuator_gateway_server"], 
-                                                            port, dbName, "SensorMonitor", 
+                                                            broker, topic_list["sensor_gateway_server"],
+                                                            topic_list["actuator_gateway_server"],
+                                                            port, dbName, "SensorMonitor",
                                                             "ActuatorMonitor",
                                                             10, 8, lock
                                                         )))
@@ -332,7 +372,7 @@ def main():
     
     print("Gateway end")
     cmd_command = "emqx stop"
-    subprocess.run(cmd_command, shell = True)
+    # subprocess.run(cmd_command, shell = True) #turn of emqx on local machine
     print("EMQX stop")
 
 if __name__ == "__main__":
