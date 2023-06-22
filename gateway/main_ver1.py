@@ -186,7 +186,10 @@ def configMQTT(broker, topic, port, dbName,lock):
                                            "?, ?, ?, ?, ?", colValuesTuple)
 
                     elif topic == thing_topic_dictionary["get_register"]:
-                        pass
+                        """
+                        To_do by HAI:
+                        ..............................................
+                        """
 
                     #_______________________________lock end here___________________________________________
                 except json.JSONDecodeError as error:
@@ -351,6 +354,7 @@ def main():
                                                             "ActuatorMonitor",
                                                             10, 8, lock
                                                         )))
+        process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, thing_topic_dictionary["get_register"], port, dbName, lock)))
         thread_list = []
         thread_list.append(threading.Thread(target=configMQTT, args=(broker, thing_topic_dictionary["get_sensor_data"], port, dbName, lock)))
         #this thread is for getting sensor data from things
