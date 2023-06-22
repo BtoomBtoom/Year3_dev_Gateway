@@ -14,12 +14,12 @@ import subprocess
 
 
 topic_list = {"sensor_topic": "farm/1/sensor", 
-                      "actuator_topic": "farm/1/actuator",
-                      "sensor_gateway_server": "farm/1/monitor",
-                      "actuator_gateway_server": "farm/1/monitor/process",
-                      "setpoint_server_gateway": "farm/1/control",
-                      "setpoint_gateway_things": "farm/1/actuator",
-                      "things_register_gateway": "farm/1/register",}
+            "actuator_topic": "farm/1/actuator",
+            "sensor_gateway_server": "farm/1/monitor",
+            "actuator_gateway_server": "farm/1/monitor/process",
+            "setpoint_server_gateway": "farm/1/control",
+            "setpoint_gateway_things": "farm/1/actuator",
+            "things_register_gateway": "farm/1/register",}
 
 def configDatabase(dbName) -> None:
     """Create database"""
@@ -82,7 +82,7 @@ def configMQTT(broker, topic, port, dbName,lock):
                     print(f"receive message from broker {broker}: {msg}")
                     # huimidity: correct letter humidity
                     # with lock:
-                    #_______________________________lock from this___________________________________________
+                    # _______________________________lock from this___________________________________________
                     db = SqliteDAO(dbName)
                     logger = Log(__name__)
                     print("START INSERTING DATA TO DATABASE")
@@ -172,6 +172,8 @@ def configMQTT(broker, topic, port, dbName,lock):
                         db.insertOneRecord("SetPointControl",
                                            "node_id, option, aim, value, time",
                                            "?, ?, ?, ?, ?", colValuesTuple)
+
+                    elif topic == topic_list[""]
 
                     #_______________________________lock end here___________________________________________
                 except json.JSONDecodeError as error:
@@ -285,7 +287,8 @@ def main():
     print("Gateway start")
     #add some fake nodes with their macaddress into table
 
-    logger = Log(__name__)
+    #create looger file if not exist
+    logger = Log(__name__)          
     try:
         logger.info("-------------Restart----------------")
 
@@ -304,6 +307,8 @@ def main():
         #____________________________________________________________________
         # tableName = "farm"
         #____________________________________________________________________
+
+        #create database with all tables if not exist
         configDatabase(dbName)
         #add some fake registered nodes into database
         # registerNode(dbName)

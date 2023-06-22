@@ -144,7 +144,7 @@ class SqliteDAO:
         self.__conn.cursor().execute(f"SELECT sql FROM sqlite_master WHERE tbl_name = '{tableName}' AND type = 'table';")
         # self.__cursor.execute("PRAGMA table_info('{}');".format(tableName))
         colNames = self.__conn.cursor().fetchall()
-        print(colNames) if len(colNames) != 0 else print(None) 
+        print(colNames) if len(colNames) != 0 else print(None)
         self.__close__()
 
     def listAllValues(self, tableName):
