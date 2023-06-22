@@ -13,13 +13,25 @@ import datetime
 import subprocess
 
 
-topic_list = {"sensor_topic": "farm/1/sensor", 
-            "actuator_topic": "farm/1/actuator",
-            "sensor_gateway_server": "farm/1/monitor",
-            "actuator_gateway_server": "farm/1/monitor/process",
-            "setpoint_server_gateway": "farm/1/control",
-            "setpoint_gateway_things": "farm/1/actuator",
-            "things_register_gateway": "farm/1/register",}
+# topic_list = {"sensor_topic": "farm/1/sensor", 
+#             "actuator_topic": "farm/1/actuator",
+#             "sensor_gateway_server": "farm/1/monitor",
+#             "actuator_gateway_server": "farm/1/monitor/process",
+#             "setpoint_server_gateway": "farm/1/control",
+#             "setpoint_gateway_things": "farm/1/actuator",
+#             "things_register_gateway": "farm/1/register",}
+
+thing_topic_dictionary = {"get_register": "farm/1/register",
+                        "send_register_ack": "farm/1/register",
+                        "get_alive_status": "farm/1/alive",
+                        "get_sensor_data": "farm/1/sensor",
+                        "get_actuator_data": "farm/1/actuator",
+                        "send_setpoint": "farm/1/actuator",
+                        "send_setpoint_ack": "farm/1/actuator",}
+
+backend_topic_dictionary = {"send_sensor_data": "farm/1/monitor",
+                        "send_actuator_data": "farm/1/monitor/process",
+                        "get_setpoint": "farm/1/control",}
 
 def configDatabase(dbName) -> None:
     """Create database"""
@@ -86,7 +98,7 @@ def configMQTT(broker, topic, port, dbName,lock):
                     db = SqliteDAO(dbName)
                     logger = Log(__name__)
                     print("START INSERTING DATA TO DATABASE")
-                    if topic == topic_list["sensor_topic"]:
+                    if topic == thing_topic_dictionary["get_sensor_data"]:
                         colValuesTuple = []
                         colValuesTuple.append(1)
                         for key in msg:
@@ -101,7 +113,7 @@ def configMQTT(broker, topic, port, dbName,lock):
                         db.insertOneRecord("SensorMonitor",
                                             "node_id, co2, temp, hum, time",
                                             "?, ?, ?, ?, ?", colValuesTuple)
-                    elif topic == topic_list["actuator_topic"]:
+                    elif topic == thing_topic_dictionary["get_actuator_data"]:
                         if msg["operator"] == "actuatorData":
                             colValuesTuple = []
                             colValuesTuple.append(1)
@@ -120,7 +132,7 @@ def configMQTT(broker, topic, port, dbName,lock):
                             #INSERT INTO ActuatorMonitor VALUES (1, 0, 63, 1684639109);
                         else:
                             pass
-                    elif topic == topic_list["setpoint_server_gateway"]:
+                    elif topic == backend_topic_dictionary["get_setpoint"]:
                         """
                         message structure example:
                         {
@@ -158,7 +170,7 @@ def configMQTT(broker, topic, port, dbName,lock):
                                 }
                         #_________________publish setpioint record to things___________________________
                         # client.subscribe("farm/1/1")
-                        client.publish(topic_list["setpoint_gateway_things"], json.dumps(setpoint_record_to_things))
+                        client.publish(thing_topic_dictionary["send_setpoint"], json.dumps(setpoint_record_to_things))
                         # client.unsubscribe("farm/1/1") #unsubscribe so that client will not also hearing topic "farm/1/1"
                         #_________________________________________________________________________________
                         print('Publishingggggggggggggggg..................')
@@ -173,7 +185,8 @@ def configMQTT(broker, topic, port, dbName,lock):
                                            "node_id, option, aim, value, time",
                                            "?, ?, ?, ?, ?", colValuesTuple)
 
-                    elif topic == topic_list[""]
+                    elif topic == thing_topic_dictionary["get_register"]:
+                        pass
 
                     #_______________________________lock end here___________________________________________
                 except json.JSONDecodeError as error:
@@ -328,24 +341,24 @@ def main():
         port = os.environ.get("MQTT_PORT", 1883)
         lock = multiprocessing.Lock()
         process_list = []
-        process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, topic_list["sensor_topic"], port, dbName, lock)))
-        process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, topic_list["actuator_topic"], port, dbName, lock)))
-        process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, topic_list["setpoint_server_gateway"], port, dbName, lock)))
+        process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, thing_topic_dictionary["get_sensor_data"], port, dbName, lock)))
+        process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, thing_topic_dictionary["get_actuator_data"], port, dbName, lock)))
+        process_list.append(multiprocessing.Process(target=configMQTT, args=(broker, backend_topic_dictionary["get_setpoint"], port, dbName, lock)))
         process_list.append(multiprocessing.Process(target=sendSensorToBackend, args=(
-                                                            broker, topic_list["sensor_gateway_server"],
-                                                            topic_list["actuator_gateway_server"],
+                                                            broker, backend_topic_dictionary["send_sensor_data"],
+                                                            backend_topic_dictionary["send_actuator_data"],
                                                             port, dbName, "SensorMonitor",
                                                             "ActuatorMonitor",
                                                             10, 8, lock
                                                         )))
         thread_list = []
-        thread_list.append(threading.Thread(target=configMQTT, args=(broker, topic_list["sensor_topic"], port, dbName, lock)))
+        thread_list.append(threading.Thread(target=configMQTT, args=(broker, thing_topic_dictionary["get_sensor_data"], port, dbName, lock)))
         #this thread is for getting sensor data from things
-        thread_list.append(threading.Thread(target=configMQTT, args=(broker, topic_list["actuator_topic"], port, dbName, lock)))
+        thread_list.append(threading.Thread(target=configMQTT, args=(broker, thing_topic_dictionary["get_actuator_data"], port, dbName, lock)))
         #this thread is for getting actuator data from things
         thread_list.append(threading.Thread(target=sendSensorToBackend, args=(
-                                                            broker, topic_list["sensor_gateway_server"], 
-                                                            topic_list["actuator_gateway_server"], 
+                                                            broker, backend_topic_dictionary["send_sensor_data"], 
+                                                            backend_topic_dictionary["send_actuator_data"], 
                                                             port, dbName, "SensorMonitor", 
                                                             "ActuatorMonitor",
                                                             10, 8, lock
