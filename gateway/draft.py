@@ -56,6 +56,9 @@ import mqtt as mqtt_client
 client = mqtt_client.Client()
 client.connect(broker, int(1883), 60)
 client.subscribe("farm/1/control")
+client.subscribe("farm/1/monitor")
+client.subscribe("farm/1/monitor/process")
+
 client.loop_start()
 def on_message(client, userdata, mes):
     msg = mes.payload.decode("utf-8")
@@ -63,3 +66,6 @@ def on_message(client, userdata, mes):
 client.on_message = on_message
 while(1):
     pass
+
+# import multiprocessing
+# print(f"There are currently {multiprocessing.active_children} process running")
